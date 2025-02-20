@@ -668,6 +668,10 @@ class BatchDecodeWithPagedKVCacheWrapper:
                 rope_scale,
                 rope_theta,
                 False,  # return_lse
+                None,
+                None,
+                0,
+                None,
             )[0]
         else:
             out = self._wrapper.run(
@@ -798,6 +802,10 @@ class BatchDecodeWithPagedKVCacheWrapper:
                 rope_scale,
                 rope_theta,
                 True,  # return_lse
+                None,
+                None,
+                0,
+                None,
             )
         else:
             V, s = self._wrapper.run(

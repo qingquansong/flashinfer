@@ -325,6 +325,7 @@ if __name__ == "__main__":
             "-Xfatbin",
             "-compress-all",
             "-use_fast_math",
+            "-lineinfo",
         ],
     }
     ext_modules = []

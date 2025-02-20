@@ -687,6 +687,10 @@ class BatchPrefillWithPagedKVCacheWrapper:
         rope_scale: Optional[float] = None,
         rope_theta: Optional[float] = None,
         q_data_type: str = "float16",
+        prefix_len_ptr: Optional[torch.Tensor] = None,
+        token_pos_in_items_ptr: Optional[torch.Tensor] = None,
+        token_pos_in_items_len: Optional[int] = 0,
+        max_item_len_ptr: Optional[torch.Tensor] = None,
     ) -> None:
         r"""Plan batch prefill/append attention on Paged KV-Cache for given problem specification.
 
@@ -755,6 +759,21 @@ class BatchPrefillWithPagedKVCacheWrapper:
         q_data_type : Optional[Union[str, torch.dtype]]
             The data type of the query tensor. If None, will be set to torch.float16.
 
+        prefix_len_ptr :Optional[torch.Tensor]
+            prefix length. A uint32 1D tensor indicating the prefix length of each prompt. The tensor size is equal to the batch size.
+        token_pos_in_items_ptr : Optional[float]
+            A uint16 1D tensor (it will be converted to uint16 in flashinfer) indicating the token position of each item and started from 0 (delimiter)
+            for each item. E.g., if we have 3 items of length 3, 2, 4 respectively for this member. This vector will be looking like
+            `[0, 1, 2, 3, 0, 1, 2, 0, 1, 2, 3, 4, 0]` with 4 delimiters indexed as 0. For batch size > 1,
+            we will concat them as 1D with zero paddings to make sure each has the same length, the padding length is defined by
+            `token_pos_in_items_len` - length of the raw `token_pos_in_items_ptr` for each prompt.
+        token_pos_in_items_len : Optional[int]
+            zero padding length for `token_pos_in_items_ptr` to better handle the bsz > 1 case. Still using the above 3,2,4 example.
+            If we set `token_pos_in_items_len` to be 20, it will be  `[0, 1, 2, 3, 0, 1, 2, 0, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0]`
+            with 7 padded zeros. (note there're 8 zeros in the end where the first one is the delimiter token 0 in the end of the prompt)
+        max_item_len_ptr : Optional[float]
+            a uint16 vector contains the max token length of all items for each prompt
+
         Note
         ----
         The :meth:`plan` method should be called before any :meth:`run` or
@@ -781,6 +800,10 @@ class BatchPrefillWithPagedKVCacheWrapper:
                 qk_indptr,
                 bitorder="little",
             )
+        self._prefix_len_ptr = prefix_len_ptr
+        self._token_pos_in_items_ptr = token_pos_in_items_ptr
+        self._token_pos_in_items_len = token_pos_in_items_len
+        self._max_item_len_ptr = max_item_len_ptr
 
         if self.is_cuda_graph_enabled:
             if batch_size != self._fixed_batch_size:
@@ -952,6 +975,10 @@ class BatchPrefillWithPagedKVCacheWrapper:
                 rope_scale,
                 rope_theta,
                 False,  # return LSE
+                self._prefix_len_ptr,
+                self._token_pos_in_items_ptr,
+                self._token_pos_in_items_len,
+                self._max_item_len_ptr,
             )[0]
         else:
             out = self._wrapper.run_custom_mask(
@@ -1079,6 +1106,10 @@ class BatchPrefillWithPagedKVCacheWrapper:
                 rope_scale,
                 rope_theta,
                 True,  # return LSE
+                self._prefix_len_ptr,
+                self._token_pos_in_items_ptr,
+                self._token_pos_in_items_len,
+                self._max_item_len_ptr,
             )
         else:
             out, lse = self._wrapper.run_custom_mask(

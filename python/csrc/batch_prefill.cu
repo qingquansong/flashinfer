@@ -71,7 +71,12 @@ std::vector<torch::Tensor> BatchPrefillWithPagedKVCachePyTorchWrapper::Run(
     torch::Tensor paged_kv_indptr, torch::Tensor paged_kv_indices,
     torch::Tensor paged_kv_last_page_len, bool causal, unsigned int pos_encoding_mode,
     bool allow_fp16_qk_reduction, int window_left, float logits_soft_cap, float sm_scale,
-    float rope_scale, float rope_theta, bool return_lse) {
+    float rope_scale, float rope_theta, bool return_lse,
+    std::optional<torch::Tensor> prefix_len_ptr,
+    std::optional<torch::Tensor> token_pos_in_items_ptr,
+    std::optional<int> token_pos_in_items_len,
+    std::optional<torch::Tensor> max_item_len_ptr
+    ) {
   bool paged_kv_defined = paged_kv_cache.has_value();
   CHECK_INPUT(q);
   CHECK_INPUT(qo_indptr);
@@ -163,6 +168,16 @@ std::vector<torch::Tensor> BatchPrefillWithPagedKVCachePyTorchWrapper::Run(
   auto kv_scalar_type =
       paged_kv_defined ? paged_kv_cache->scalar_type() : paged_k_cache->scalar_type();
 
+  uint32_t* prefix_ptr = prefix_len_ptr.has_value()
+      ? static_cast<uint32_t*>(prefix_len_ptr.value().data_ptr())
+      : nullptr;
+  uint16_t* token_ptr = token_pos_in_items_ptr.has_value()
+      ? static_cast<uint16_t*>(token_pos_in_items_ptr.value().data_ptr())
+      : nullptr;
+  uint16_t* max_item_ptr = max_item_len_ptr.has_value()
+      ? static_cast<uint16_t*>(max_item_len_ptr.value().data_ptr())
+      : nullptr;
+  uint32_t token_len = token_pos_in_items_len.has_value() ? token_pos_in_items_len.value() : 0;
   if (q_scalar_type == kv_scalar_type) {
     DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(q_scalar_type, c_type, [&] {
       return DISPATCH_logits_post_hook(logits_post_hook, LOGITS_POST_HOOK, [&] {
@@ -191,6 +206,10 @@ std::vector<torch::Tensor> BatchPrefillWithPagedKVCachePyTorchWrapper::Run(
                             /*lse=*/return_lse ? static_cast<float*>(lse.data_ptr()) : nullptr,
                             num_qo_heads, window_left, logits_soft_cap, sm_scale, rope_scale,
                             rope_theta,
+                            prefix_ptr,
+                            token_ptr,
+                            token_len,
+                            max_item_ptr,
                             /*stream=*/torch_current_stream);
                         TORCH_CHECK(status == cudaSuccess,
                                     "BatchPrefillWithPagedKVCache failed with error code ",
@@ -234,6 +253,10 @@ std::vector<torch::Tensor> BatchPrefillWithPagedKVCachePyTorchWrapper::Run(
                               /*lse=*/return_lse ? static_cast<float*>(lse.data_ptr()) : nullptr,
                               num_qo_heads, window_left, logits_soft_cap, sm_scale, rope_scale,
                               rope_theta,
+                              prefix_ptr,
+                              token_ptr,
+                              token_len,
+                              max_item_ptr,
                               /*stream=*/torch_current_stream);
                           TORCH_CHECK(status == cudaSuccess,
                                       "BatchPrefillWithPagedKVCache failed with error code ",
@@ -388,6 +411,10 @@ std::vector<torch::Tensor> BatchPrefillWithPagedKVCachePyTorchWrapper::RunCustom
                           /*lse=*/return_lse ? static_cast<float*>(lse.data_ptr()) : nullptr,
                           num_qo_heads, window_left, logits_soft_cap, sm_scale, rope_scale,
                           rope_theta,
+                          /*prefix_len_ptr=*/nullptr,
+                          /*token_pos_in_items_ptr=*/nullptr,
+                          /*token_pos_in_items_len=*/0,
+                          /*max_item_len_ptr=*/nullptr,
                           /*stream=*/torch_current_stream);
                       TORCH_CHECK(status == cudaSuccess,
                                   "BatchPrefillWithPagedKVCache failed with error code ",
@@ -430,6 +457,10 @@ std::vector<torch::Tensor> BatchPrefillWithPagedKVCachePyTorchWrapper::RunCustom
                             /*lse=*/return_lse ? static_cast<float*>(lse.data_ptr()) : nullptr,
                             num_qo_heads, window_left, logits_soft_cap, sm_scale, rope_scale,
                             rope_theta,
+                            /*prefix_len_ptr=*/nullptr,
+                            /*token_pos_in_items_ptr=*/nullptr,
+                            /*token_pos_in_items_len=*/0,
+                            /*max_item_len_ptr=*/nullptr,
                             /*stream=*/torch_current_stream);
                         TORCH_CHECK(status == cudaSuccess,
                                     "BatchPrefillWithPagedKVCache failed with error code ",

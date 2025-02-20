@@ -47,7 +47,12 @@ class BatchPrefillWithPagedKVCachePyTorchWrapper {
                                  torch::Tensor paged_kv_last_page_len, bool causal,
                                  unsigned int pos_encoding_mode, bool allow_fp16_qk_reduction,
                                  int window_left, float logits_soft_cap, float sm_scale,
-                                 float rope_scale, float rope_theta, bool return_lse);
+                                 float rope_scale, float rope_theta, bool return_lse,
+                                 std::optional<torch::Tensor> prefix_len_ptr,
+                                 std::optional<torch::Tensor> token_pos_in_items_ptr,
+                                 std::optional<int> token_pos_in_items_len,
+                                 std::optional<torch::Tensor> max_item_len_ptr
+                                 );
   std::vector<torch::Tensor> RunCustomMask(
       torch::Tensor q, torch::Tensor qo_indptr, std::optional<torch::Tensor> paged_kv_cache,
       std::optional<torch::Tensor> paged_k_cache, std::optional<torch::Tensor> paged_v_cache,

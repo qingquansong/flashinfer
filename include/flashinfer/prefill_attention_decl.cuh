@@ -63,7 +63,9 @@ cudaError_t BatchPrefillWithPagedKVCacheDispatched(
     float* tmp_s, float* lse, IdType* merge_indptr, bool* block_valid_mask,
     IdType* kv_chunk_size_ptr, uint32_t total_num_rows, uint32_t num_qo_heads,
     uint32_t padded_batch_size, int32_t window_left, float logits_soft_cap, float sm_scale,
-    float rope_scale, float rope_theta, cudaStream_t stream);
+    float rope_scale, float rope_theta,
+    uint32_t* prefix_len_ptr, uint16_t* token_pos_in_items_ptr, uint32_t token_pos_in_items_len, uint16_t* max_item_len_ptr,
+    cudaStream_t stream);
 
 template <PageStorage PAGE_STORAGE, uint32_t HEAD_DIM, LogitsPostHook LOGITS_POST_HOOK,
           PosEncodingMode POS_ENCODING_MODE, bool ALLOW_FP16_QK_REDUCTION, MaskMode MASK_MODE,
@@ -72,7 +74,9 @@ cudaError_t BatchPrefillWithPagedKVCacheWrapperDispatched(
     BatchPrefillHandler* handler, DTypeQ* q, IdType* q_indptr, IdType* q_offset,
     paged_kv_t<PAGE_STORAGE, DTypeKV, IdType> paged_kv, uint8_t* custom_mask, IdType* qk_indptr,
     DTypeOut* o, float* lse, uint32_t num_qo_heads, int32_t window_left, float logits_soft_cap,
-    float sm_scale, float rope_scale, float rope_theta, cudaStream_t stream) {
+    float sm_scale, float rope_scale, float rope_theta,
+    uint32_t* prefix_len_ptr, uint16_t* token_pos_in_items_ptr, uint32_t token_pos_in_items_len, uint16_t* max_item_len_ptr,
+    cudaStream_t stream) {
   DTypeOut* tmp_v = nullptr;
   float* tmp_s = nullptr;
   IdType *request_indices = nullptr, *qo_tile_indices = nullptr, *kv_tile_indices = nullptr,
@@ -101,7 +105,9 @@ cudaError_t BatchPrefillWithPagedKVCacheWrapperDispatched(
         q, request_indices, qo_tile_indices, kv_tile_indices, q_indptr, q_offset, paged_kv,
         custom_mask, qk_indptr, o_indptr, o, tmp_v, tmp_s, lse, merge_indptr, block_valid_mask,
         kv_chunk_size_ptr, total_num_rows, num_qo_heads, padded_batch_size, window_left,
-        logits_soft_cap, sm_scale, rope_scale, rope_theta, stream);
+        logits_soft_cap, sm_scale, rope_scale, rope_theta,
+        prefix_len_ptr, token_pos_in_items_ptr, token_pos_in_items_len, max_item_len_ptr,
+        stream);
   });
   return cudaSuccess;
 }

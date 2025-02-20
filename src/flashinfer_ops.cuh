@@ -145,7 +145,10 @@ cudaError_t BatchPrefillWithPagedKVCacheWrapper(
     uint32_t num_qo_heads, bool causal = true,
     PosEncodingMode pos_encoding_mode = PosEncodingMode::kNone,
     bool allow_fp16_qk_reduction = false, std::optional<float> maybe_sm_scale = std::nullopt,
-    float rope_scale = 1.f, float rope_theta = 1e4, cudaStream_t stream = nullptr) {
+    float rope_scale = 1.f, float rope_theta = 1e4,
+    uint32_t* prefix_len_ptr, uint16_t* token_pos_in_items_ptr, uint32_t token_pos_in_items_len,
+    uint16_t* max_item_len_ptr,
+    cudaStream_t stream = nullptr) {
   const float sm_scale = maybe_sm_scale.value_or(1.f / std::sqrt(float(paged_kv.head_dim)));
   const uint32_t num_kv_heads = paged_kv.num_heads;
   const uint32_t head_dim = paged_kv.head_dim;
@@ -163,7 +166,12 @@ cudaError_t BatchPrefillWithPagedKVCacheWrapper(
                     handler, q, qo_indptr, q_offset, paged_kv,
                     /*custom_mask=*/nullptr,
                     /*qk_indptr=*/nullptr, o, lse, num_qo_heads, /*window_left=*/-1,
-                    /*logits_soft_cap=*/0.f, sm_scale, rope_scale, rope_theta, stream);
+                    /*logits_soft_cap=*/0.f, sm_scale, rope_scale, rope_theta,
+                    prefix_len_ptr,
+                    token_pos_in_items_ptr,
+                    token_pos_in_items_len,
+                    max_item_len_ptr,
+                    stream);
               })})})});
   return cudaSuccess;
 }
